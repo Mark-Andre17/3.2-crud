@@ -1,23 +1,18 @@
 from rest_framework import serializers
-from rest_framework.exceptions import ValidationError
-from .models import Product, Stock, StockProduct
+
+from logistic.models import Product, StockProduct, Stock
 
 
 class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
-        fields = '__all__'
+        fields = ['id', 'title', 'description']
 
 
 class ProductPositionSerializer(serializers.ModelSerializer):
     class Meta:
         model = StockProduct
-        fields = '__all__'
-
-    def validate_quantity(self, value):
-        if value < 1:
-            raise ValidationError('значение должно быть больше 1')
-        return value
+        fields = ['product', 'quantity', 'price']
 
 
 class StockSerializer(serializers.ModelSerializer):
@@ -25,24 +20,21 @@ class StockSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Stock
-        fields = '__all__'
+        fields = ['id', 'address', 'positions']
 
     def create(self, validated_data):
-
         positions = validated_data.pop('positions')
-
         stock = super().create(validated_data)
-
         for position in positions:
-            stock.positions.create(**position)
+            StockProduct.objects.create(stock=stock, product=position['product'],
+                                        quantity=position['quantity'], price=position['price'])
         return stock
 
     def update(self, instance, validated_data):
-
         positions = validated_data.pop('positions')
-
         stock = super().update(instance, validated_data)
-
         for position in positions:
-            stock.positions.update_or_create(**position)
+            StockProduct.objects.filter(stock=stock).update(product=position['product'],
+                                                            quantity=position['quantity'], price=position['price'])
+
         return stock
